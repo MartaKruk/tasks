@@ -39,7 +39,6 @@ public class TaskController {
         } catch (Exception e) {
             throw new TaskNotFoundException();
         }
-
     }
 
     @RequestMapping(method = RequestMethod.PUT, value = "updateTask")
