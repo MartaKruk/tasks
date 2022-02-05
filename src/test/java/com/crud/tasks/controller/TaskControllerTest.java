@@ -1,10 +1,9 @@
 package com.crud.tasks.controller;
 
-import com.crud.tasks.domain.CreatedTrelloCardDto;
-import com.crud.tasks.domain.TrelloBoardDto;
-import com.crud.tasks.domain.TrelloCardDto;
-import com.crud.tasks.domain.TrelloListDto;
-import com.crud.tasks.trello.facade.TrelloFacade;
+import com.crud.tasks.domain.Task;
+import com.crud.tasks.domain.TaskDto;
+import com.crud.tasks.mapper.TaskMapper;
+import com.crud.tasks.service.DbService;
 import com.google.gson.Gson;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
@@ -20,70 +19,110 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 
 @SpringJUnitWebConfig
-@WebMvcTest(TrelloController.class)
+@WebMvcTest(TaskController.class)
 class TaskControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockBean
-    private TrelloFacade trelloFacade;
+    private TaskMapper taskMapper;
+
+    @MockBean
+    private DbService service;
 
     @Test
-    void shouldFetchEmptyTrelloBoards() throws Exception {
+    void shouldGetTasks() throws Exception {
         //Given
-        when(trelloFacade.fetchTrelloBoards()).thenReturn(List.of());
-        //When & Then
-        mockMvc
-                .perform((MockMvcRequestBuilders
-                        .get("/v1/trello/getTrelloBoards")
-                        .contentType(MediaType.APPLICATION_JSON)))
-                .andExpect(MockMvcResultMatchers.status().is(200))
-                .andExpect(MockMvcResultMatchers.jsonPath("$", Matchers.hasSize(0)));
-    }
-
-    @Test
-    void shouldFetchTrelloBoards() throws Exception {
-        //Given
-        List<TrelloListDto> trelloLists = List.of(new TrelloListDto("1", "Test list", false));
-        List<TrelloBoardDto> trelloBoards = List.of(new TrelloBoardDto("1", "Test task", trelloLists));
-        when(trelloFacade.fetchTrelloBoards()).thenReturn(trelloBoards);
+        List<Task> tasks = List.of(new Task(1L, "title", "content"));
+        List<TaskDto> taskDtos = List.of(new TaskDto(1L, "title", "content"));
+        when(service.getAllTasks()).thenReturn(tasks);
+        when(taskMapper.mapToTaskDtoList(tasks)).thenReturn(taskDtos);
         //When & Then
         mockMvc
                 .perform(MockMvcRequestBuilders
-                        .get("/v1/trello/getTrelloBoards")
+                        .get("/v1/task/getTasks")
                         .contentType(MediaType.APPLICATION_JSON))
-                //Trello board fields
                 .andExpect(MockMvcResultMatchers.jsonPath("$", Matchers.hasSize(1)))
-                .andExpect(MockMvcResultMatchers.jsonPath("$[0].id", Matchers.is("1")))
-                .andExpect(MockMvcResultMatchers.jsonPath("$[0].name", Matchers.is("Test task")))
-                //Trello list fields
-                .andExpect(MockMvcResultMatchers.jsonPath("$[0].lists", Matchers.hasSize(1)))
-                .andExpect(MockMvcResultMatchers.jsonPath("$[0].lists[0].id", Matchers.is("1")))
-                .andExpect(MockMvcResultMatchers.jsonPath("$[0].lists[0].name", Matchers.is("Test list")))
-                .andExpect(MockMvcResultMatchers.jsonPath("$[0].lists[0].closed", Matchers.is(false)));
+                .andExpect(MockMvcResultMatchers.jsonPath("$[0].id", Matchers.is(1)))
+                .andExpect(MockMvcResultMatchers.jsonPath("$[0].title", Matchers.is("title")))
+                .andExpect(MockMvcResultMatchers.jsonPath("$[0].content", Matchers.is("content")));
     }
 
     @Test
-    void shouldCreateTrelloCard() throws Exception {
+    void shouldGetTask() throws Exception {
         //Given
-        TrelloCardDto trelloCardDto = new TrelloCardDto("Test", "Test description", "top", "1");
-        CreatedTrelloCardDto createdTrelloCardDto = new CreatedTrelloCardDto("232", "Test", "http://test.com");
-        when(trelloFacade.createCard(any(TrelloCardDto.class))).thenReturn(createdTrelloCardDto);
-        Gson gson = new Gson();
-        String jsonContent = gson.toJson(trelloCardDto);
+        Task task = new Task(1L, "title", "content");
+        TaskDto taskDto = new TaskDto(1L, "title", "content");
+        when(service.getTask(1L)).thenReturn(java.util.Optional.of(task));
+        when(taskMapper.mapToTaskDto(task)).thenReturn(taskDto);
         //When & Then
         mockMvc
                 .perform(MockMvcRequestBuilders
-                        .post("/v1/trello/createTrelloCard")
+                        .get("/v1/task/getTask")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .param("taskId", "1"))
+                .andExpect(MockMvcResultMatchers.jsonPath("$", Matchers.aMapWithSize(3)))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.id", Matchers.is(1)))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.title", Matchers.is("title")))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.content", Matchers.is("content")));
+    }
+
+    @Test
+    void shouldDeleteTask() throws Exception {
+        //Given
+        doNothing().when(service).deleteTask(anyLong());
+        //When & Then
+        mockMvc
+                .perform(MockMvcRequestBuilders
+                        .delete("/v1/task/deleteTask?taskId=1")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(MockMvcResultMatchers.status().is(200));
+    }
+
+    @Test
+    void shouldUpdateTask() throws Exception {
+        //Given
+        Task task = new Task(1L, "title", "content");
+        TaskDto taskDto = new TaskDto(1L, "title", "content");
+        when(taskMapper.mapToTask(any(TaskDto.class))).thenReturn(task);
+        when(service.saveTask(any(Task.class))).thenReturn(task);
+        when(taskMapper.mapToTaskDto(task)).thenReturn(taskDto);
+        Gson gson = new Gson();
+        String jsonContent = gson.toJson(taskDto);
+        //When & Then
+        mockMvc
+                .perform(MockMvcRequestBuilders
+                        .put("/v1/task/updateTask")
                         .contentType(MediaType.APPLICATION_JSON)
                         .characterEncoding("UTF-8")
                         .content(jsonContent))
-                .andExpect(MockMvcResultMatchers.jsonPath("$.id", Matchers.is("232")))
-                .andExpect(MockMvcResultMatchers.jsonPath("$.name", Matchers.is("Test")))
-                .andExpect(MockMvcResultMatchers.jsonPath("$.shortUrl", Matchers.is("http://test.com")));
+                .andExpect(MockMvcResultMatchers.jsonPath("$.id", Matchers.is(1)))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.title", Matchers.is("title")))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.content", Matchers.is("content")));
+    }
+
+    @Test
+    void shouldCreateTask() throws Exception {
+        //Given
+        Task task = new Task(1L, "title", "content");
+        TaskDto taskDto = new TaskDto(1L, "title", "content");
+        when(taskMapper.mapToTask(taskDto)).thenReturn(task);
+        when(service.saveTask(task)).thenReturn(task);
+        Gson gson = new Gson();
+        String jsonContent = gson.toJson(taskDto);
+        //When & Then
+        mockMvc
+                .perform(MockMvcRequestBuilders
+                        .post("/v1/task/createTask")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .characterEncoding("UTF-8")
+                        .content(jsonContent))
+                .andExpect(MockMvcResultMatchers.status().is(200));
     }
 }
