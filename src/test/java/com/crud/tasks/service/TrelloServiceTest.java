@@ -28,7 +28,7 @@ class TrelloServiceTest {
     private TrelloClient trelloClient;
 
     @Mock
-    private SimpleEmailService emailService;
+    private SimpleMailService emailService;
 
     @Mock
     private AdminConfig adminConfig;

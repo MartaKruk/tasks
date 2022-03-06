@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SimpleEmailService {
+public class SimpleMailService {
 
     @Autowired
     private MailCreatorService mailCreatorService;
@@ -24,8 +24,7 @@ public class SimpleEmailService {
     public void send(final Mail mail) {
         log.info("Starting email preparation...");
         try {
-            SimpleMailMessage mailMessage = createMailMessage(mail);
-            javaMailSender.send(mailMessage);
+            javaMailSender.send(createMimeMessage(mail));
             log.info("Email has been sent.");
         } catch (MailException e) {
             log.error("Failed to process email sending: " + e.getMessage(), e);

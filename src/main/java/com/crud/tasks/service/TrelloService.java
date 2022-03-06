@@ -18,7 +18,7 @@ import static java.util.Optional.ofNullable;
 public class TrelloService {
     private static final String SUBJECT = "Tasks: New Trello card";
     private final TrelloClient trelloClient;
-    private final SimpleEmailService emailService;
+    private final SimpleMailService emailService;
     private final AdminConfig adminConfig;
 
     public List<TrelloBoardDto> fetchTrelloBoards() {
